@@ -86,7 +86,7 @@ if (!body["activities-active-zone-minutes"]) {
   Deno.exit(-1);
 }
 const azm = body["activities-active-zone-minutes"];
-const today = azm[azm.length - 1].value.activeZoneMinutes;
+const today = azm.length ? azm[azm.length - 1].value.activeZoneMinutes : 0;
 const total = azm.reduce((acc, day) => acc + day.value.activeZoneMinutes, 0);
 
 // Print the results
