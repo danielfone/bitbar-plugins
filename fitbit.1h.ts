@@ -52,11 +52,24 @@ await Deno.writeTextFile("./config/.fitbit_refresh_token", refresh_token);
 // /1/user/[user-id]/activities/active-zone-minutes/date/[start-date]/[end-date].json
 // Get today in the system timezone
 const endDate = new Date();
-// Get 7 days ago in the system timezone
+
+// Get the start of the week (Sunday)
 const startDate = new Date();
-startDate.setDate(startDate.getDate() - 7);
-const response = await fetch(
+startDate.setDate(startDate.getDate() - startDate.getDay());
+
+const azmResponse = await fetch(
   `https://api.fitbit.com/1/user/-/activities/active-zone-minutes/date/${
+    startDate.toISOString().split("T")[0]
+  }/${endDate.toISOString().split("T")[0]}.json`,
+  {
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+    },
+  },
+);
+
+const distanceResponse = await fetch(
+  `https://api.fitbit.com/1/user/-/activities/distance/date/${
     startDate.toISOString().split("T")[0]
   }/${endDate.toISOString().split("T")[0]}.json`,
   {
@@ -78,16 +91,28 @@ type AZMResponse = {
   }[];
 };
 
-// Get today's AZM as well as the total for the last 7 days
-const body: AZMResponse = await response.json();
+type DistanceResponse = {
+  "activities-distance": {
+    dateTime: string;
+    value: string;
+  }[];
+};
 
-if (!body["activities-active-zone-minutes"]) {
+// Get today's AZM as well as the total for the last 7 days
+const azmBody: AZMResponse = await azmResponse.json();
+
+// Get today's distance as well as the total for the last 7 days
+const distanceBody: DistanceResponse = await distanceResponse.json();
+
+if (!azmBody["activities-active-zone-minutes"]) {
   console.error("Invalid response from Fitbit API");
   Deno.exit(-1);
 }
-const azm = body["activities-active-zone-minutes"];
-const today = azm.length ? azm[azm.length - 1].value.activeZoneMinutes : 0;
-const total = azm.reduce((acc, day) => acc + day.value.activeZoneMinutes, 0);
+const azm = azmBody["activities-active-zone-minutes"];
+// const today = azm.length ? azm[azm.length - 1].value.activeZoneMinutes : 0;
+const azmTotal = azm.reduce((acc, day) => acc + day.value.activeZoneMinutes, 0);
+const distance = distanceBody["activities-distance"];
+const distanceTotal = distance.reduce((acc, day) => acc + parseFloat(day.value), 0);
 
 // Print the results
-console.log(`${today} ⚡️ ${total}`);
+console.log(`${Math.round(distanceTotal)} km ⚡️ ${azmTotal}`);
